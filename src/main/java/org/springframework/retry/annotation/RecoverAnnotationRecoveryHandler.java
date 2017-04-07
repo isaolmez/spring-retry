@@ -108,33 +108,32 @@ public class RecoverAnnotationRecoveryHandler<T> implements MethodInvocationReco
 	private void init(Object target, Method method) {
 		final Map<Class<? extends Throwable>, Method> types = new HashMap<Class<? extends Throwable>, Method>();
 		final Method failingMethod = method;
-		ReflectionUtils.doWithMethods(failingMethod.getDeclaringClass(),
-				new MethodCallback() {
-					@Override
-					public void doWith(Method method) throws IllegalArgumentException,
-							IllegalAccessException {
-						Recover recover = AnnotationUtils.findAnnotation(method,
-								Recover.class);
-						if (recover != null
-								&& failingMethod.getReturnType().isAssignableFrom(
-										method.getReturnType())) {
-							Class<?>[] parameterTypes = method.getParameterTypes();
-							if (parameterTypes.length > 0
-									&& Throwable.class
-											.isAssignableFrom(parameterTypes[0])) {
-								@SuppressWarnings("unchecked")
-								Class<? extends Throwable> type = (Class<? extends Throwable>) parameterTypes[0];
-								types.put(type, method);
-								methods.put(method, new SimpleMetadata(
-										parameterTypes.length, type));
-							} else {
-								classifier.setDefaultValue(method);
-								methods.put(method, new SimpleMetadata(
-										parameterTypes.length, null));
-							}
-						}
+		MethodCallback callback = new MethodCallback() {
+			@Override
+			public void doWith(Method method) throws IllegalArgumentException, IllegalAccessException {
+				Recover recover = AnnotationUtils.findAnnotation(method, Recover.class);
+				if (recover != null
+					&& failingMethod.getReturnType().isAssignableFrom(
+						method.getReturnType())) {
+					Class<?>[] parameterTypes = method.getParameterTypes();
+					if (parameterTypes.length > 0
+						&& Throwable.class
+								.isAssignableFrom(parameterTypes[0])) {
+						@SuppressWarnings("unchecked")
+						Class<? extends Throwable> type = (Class<? extends Throwable>) parameterTypes[0];
+						types.put(type, method);
+						methods.put(method, new SimpleMetadata(
+								parameterTypes.length, type));
+					} else {
+						classifier.setDefaultValue(method);
+						methods.put(method, new SimpleMetadata(
+								parameterTypes.length, null));
 					}
-				});
+				}
+			}
+		};
+		ReflectionUtils.doWithMethods(failingMethod.getDeclaringClass(), callback);
+		ReflectionUtils.doWithMethods(target.getClass(), callback);
 		classifier.setTypeMap(types);
 	}
 

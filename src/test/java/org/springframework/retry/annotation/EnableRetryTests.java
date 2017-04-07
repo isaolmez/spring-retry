@@ -105,6 +105,28 @@ public class EnableRetryTests {
 	}
 
 	@Test
+	public void recoveryFromTheInterface() {
+		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(
+				TestConfiguration.class);
+		RecoverableInterface service = context.getBean(RecoverableInterface.class);
+		service.service();
+		assertEquals(3, service.getCount());
+		assertNotNull(service.getCause());
+		context.close();
+	}
+
+	@Test
+	public void recoveryFromTheImplementation() {
+		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(
+				TestConfiguration.class);
+		NonRecoverableInterface service = context.getBean(NonRecoverableInterface.class);
+		service.service();
+		assertEquals(3, service.getCount());
+		assertNotNull(service.getCause());
+		context.close();
+	}
+
+	@Test
 	public void type() {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(
 				TestConfiguration.class);
@@ -306,6 +328,15 @@ public class EnableRetryTests {
 			return new TheClass();
 		}
 
+		@Bean
+		public RecoverableInterface recoverableInterface(){
+			return new ServiceRecoverableFromInterface();
+		}
+
+		@Bean
+		public NonRecoverableInterface nonRecoverableInterface(){
+			return new ServiceRecoverableFromImplementation();
+		}
 	}
 
 	protected static class Service {
@@ -526,4 +557,89 @@ public class EnableRetryTests {
 
 	}
 
+	public static interface RecoverableInterface {
+
+		@Retryable
+		void service();
+
+		@Recover
+		void recover(Throwable cause);
+
+		int getCount();
+
+		Throwable getCause();
+
+	}
+
+	public static class ServiceRecoverableFromInterface implements RecoverableInterface {
+
+		private int count = 0;
+
+		private Throwable cause;
+
+		@Override
+		public void service() {
+			if (count++ < 3) {
+				throw new RuntimeException("Planned");
+			}
+		}
+
+		@Override
+		public void recover(Throwable cause) {
+			this.cause = cause;
+		}
+
+		@Override
+		public int getCount() {
+			return count;
+		}
+
+		@Override
+		public Throwable getCause() {
+			return cause;
+		}
+	}
+
+	public static interface NonRecoverableInterface {
+
+		void service();
+
+		void recover(Throwable cause);
+
+		int getCount();
+
+		Throwable getCause();
+
+	}
+
+	public static class ServiceRecoverableFromImplementation implements NonRecoverableInterface {
+
+		private int count = 0;
+
+		private Throwable cause;
+
+		@Override
+		@Retryable
+		public void service() {
+			if (count++ < 3) {
+				throw new RuntimeException("Planned");
+			}
+		}
+
+		@Override
+		@Recover
+		public void recover(Throwable cause) {
+			this.cause = cause;
+		}
+
+		@Override
+		public int getCount() {
+			return count;
+		}
+
+		@Override
+		public Throwable getCause() {
+			return cause;
+		}
+	}
 }
